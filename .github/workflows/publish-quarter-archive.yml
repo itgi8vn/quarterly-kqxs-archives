@@ -21,14 +21,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Validate and stage archive
+      - name: Validate and stage production archive
         env:
           ARCHIVE_ID: ${{ github.event.client_payload.archive_id }}
           QUARTER_ID: ${{ github.event.client_payload.quarter_id }}
           DOWNLOAD_URL: ${{ github.event.client_payload.download_url }}
           MANIFEST_URL: ${{ github.event.client_payload.manifest_url }}
           EXPECTED_SHA256: ${{ github.event.client_payload.sha256 }}
-        run: python scripts/publish_archive.py --repo .
+        run: python scripts/publish_archive.py --repo . --source-policy production
       - name: Commit public archive
         run: |
           if [ -z "$(git status --porcelain -- archives)" ]; then

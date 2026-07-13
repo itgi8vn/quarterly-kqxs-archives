@@ -17,3 +17,7 @@ sqlite3 kqxs_2026_Q2.sqlite 'PRAGMA quick_check; PRAGMA integrity_check;'
 ```
 
 The computed checksum must equal the manifest `sha256`. Consumers should also confirm `schema_version`, row counts, and SQLite integrity before use. Published quarter paths are immutable: retrying the same checksum succeeds; a different checksum is rejected.
+
+## Synthetic test fixture
+
+The accepted synthetic Archive V1 fixture is preserved under `test-fixtures/archive-v1/2026-Q2/`. It is test data only and must never be submitted to `quarter_archive_publish`. The production workflow rejects checked-in `/test-fixtures/` source URLs; remote workflow tests must use validation without publishing into `archives/YYYY/QN`.

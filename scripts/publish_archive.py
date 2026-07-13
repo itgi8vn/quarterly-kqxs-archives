@@ -26,14 +26,16 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def validate_url(value):
+def validate_url(value, reject_test_fixtures=False):
     parsed = urlparse(value)
     if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
         raise ValueError("download_url and manifest_url must be credential-free HTTPS URLs")
+    if reject_test_fixtures and "/test-fixtures/" in parsed.path:
+        raise ValueError("checked-in test fixtures cannot be published to the production archive namespace")
 
 
-def download(url, target):
-    validate_url(url)
+def download(url, target, reject_test_fixtures=False):
+    validate_url(url, reject_test_fixtures=reject_test_fixtures)
     request = urllib.request.Request(url, headers={"User-Agent": "c1-quarter-archive-publisher/1"})
     with urllib.request.urlopen(request, timeout=60) as response, target.open("wb") as output:
         if response.status != 200:
@@ -73,7 +75,7 @@ def inspect_sqlite(path):
             connection.close()
 
 
-def publish_local(sqlite_path, manifest_path, repo, archive_id, quarter_id, expected_sha):
+def publish_local(sqlite_path, manifest_path, repo, archive_id, quarter_id, expected_sha, destination_root="archives"):
     match = QUARTER_RE.fullmatch(quarter_id)
     if not match or not ID_RE.fullmatch(archive_id) or not SHA_RE.fullmatch(expected_sha):
         raise ValueError("invalid archive_id, quarter_id, or sha256")
@@ -98,7 +100,7 @@ def publish_local(sqlite_path, manifest_path, repo, archive_id, quarter_id, expe
     if inspect_sqlite(sqlite_path) != expected_counts:
         raise ValueError("manifest row counts do not match SQLite")
     year, quarter = match.group("year"), match.group("quarter")
-    destination = repo / "archives" / year / f"Q{quarter}"
+    destination = repo / destination_root / year / f"Q{quarter}"
     archive_target = destination / f"kqxs_{year}_Q{quarter}.sqlite"
     manifest_target = destination / "manifest.json"
     canonical_bytes = (json.dumps(manifest, sort_keys=True, indent=2) + "\n").encode("utf-8")
@@ -118,6 +120,7 @@ def publish_local(sqlite_path, manifest_path, repo, archive_id, quarter_id, expe
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", type=Path, required=True)
+    parser.add_argument("--source-policy", choices=("production",), default="production")
     args = parser.parse_args()
     import os
     values = {name: os.environ.get(name, "") for name in
@@ -127,8 +130,8 @@ def main():
     with tempfile.TemporaryDirectory() as temp:
         temp = Path(temp)
         sqlite_path, manifest_path = temp / "archive.sqlite", temp / "manifest.json"
-        download(values["DOWNLOAD_URL"], sqlite_path)
-        download(values["MANIFEST_URL"], manifest_path)
+        download(values["DOWNLOAD_URL"], sqlite_path, reject_test_fixtures=True)
+        download(values["MANIFEST_URL"], manifest_path, reject_test_fixtures=True)
         print(publish_local(sqlite_path, manifest_path, args.repo.resolve(),
                             values["ARCHIVE_ID"], values["QUARTER_ID"], values["EXPECTED_SHA256"]))
 
