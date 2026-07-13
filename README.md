@@ -1,23 +1,71 @@
-# Quarterly KQXS SQLite archives
+# Kho dữ liệu kết quả xổ số theo quý
 
-This public repository contains completed historical KQXS data, one immutable SQLite file per quarter. Archives use schema `system_a_kqxs_archive_schema_v1` and preserve result numbers as text.
+Kho công khai này chỉ chứa dữ liệu kết quả xổ số đã hoàn tất ở định dạng SQLite. Phạm vi dữ liệu liên tục từ **01/02/2009 đến 30/06/2026**.
 
-## Layout
+## Cấu trúc thư mục
 
-`archives/YYYY/QN/kqxs_YYYY_QN.sqlite` and `archives/YYYY/QN/manifest.json`
+Mỗi quý có một tệp:
 
-Example download and verification:
+```text
+archives/YYYY/QN/kqxs_YYYY_QN.sqlite
+```
+
+Ví dụ quý 2 năm 2026:
+
+```text
+archives/2026/Q2/kqxs_2026_Q2.sqlite
+```
+
+Phiên bản lược đồ: `system_a_kqxs_archive_schema_v1`.
+
+## Tải dữ liệu
+
+Tải một quý:
 
 ```sh
 curl -LO https://raw.githubusercontent.com/itgi8vn/quarterly-kqxs-archives/main/archives/2026/Q2/kqxs_2026_Q2.sqlite
-curl -LO https://raw.githubusercontent.com/itgi8vn/quarterly-kqxs-archives/main/archives/2026/Q2/manifest.json
-sha256sum kqxs_2026_Q2.sqlite
-python -c "import json; print(json.load(open('manifest.json'))['sha256'])"
-sqlite3 kqxs_2026_Q2.sqlite 'PRAGMA quick_check; PRAGMA integrity_check;'
 ```
 
-The computed checksum must equal the manifest `sha256`. Consumers should also confirm `schema_version`, row counts, and SQLite integrity before use. Published quarter paths are immutable: retrying the same checksum succeeds; a different checksum is rejected.
+Tải toàn bộ kho bằng Git:
 
-## Synthetic test fixture
+```sh
+git clone --depth 1 https://github.com/itgi8vn/quarterly-kqxs-archives.git
+```
 
-The accepted synthetic Archive V1 fixture is preserved under `test-fixtures/archive-v1/2026-Q2/`. It is test data only and must never be submitted to `quarter_archive_publish`. The production workflow rejects checked-in `/test-fixtures/` source URLs; remote workflow tests must use validation without publishing into `archives/YYYY/QN`.
+## Mở và kiểm tra SQLite
+
+```sh
+sqlite3 kqxs_2026_Q2.sqlite
+```
+
+Trong trình SQLite:
+
+```sql
+PRAGMA quick_check;
+PRAGMA integrity_check;
+PRAGMA foreign_key_check;
+SELECT * FROM archive_schema_version;
+SELECT artifact, row_count, sha256 FROM archive_checksums ORDER BY artifact;
+SELECT COUNT(*) FROM lottery_draws;
+SELECT COUNT(*) FROM lottery_results;
+```
+
+Kết quả của `quick_check` và `integrity_check` phải là `ok`. Truy vấn `foreign_key_check` không được trả về dòng lỗi.
+
+## Các bảng dữ liệu
+
+- `archive_schema_version`: phiên bản lược đồ.
+- `archive_manifest`: phạm vi ngày, số lượng dòng và thông tin kiểm tra nội bộ.
+- `archive_checksums`: mã SHA-256 của nội dung logic theo bảng.
+- `regions`: miền xổ số.
+- `lottery_provinces`: tỉnh và thành phố.
+- `lottery_schedules`: lịch quay theo thứ.
+- `prize_specs`: số lượng giải và độ rộng chuỗi số.
+- `lottery_draws`: kỳ quay theo ngày và tỉnh.
+- `lottery_results`: kết quả từng giải theo đúng thứ tự.
+
+`result_number` luôn là kiểu `TEXT`. Số 0 ở đầu có ý nghĩa và phải được giữ nguyên khi đọc hoặc chuyển đổi dữ liệu.
+
+Các kỳ có toàn bộ giá trị bằng 0 biểu thị ngày không quay thưởng hoặc không có nguồn dữ liệu, đã được chuẩn hóa để giữ cấu trúc đầy đủ và nhất quán.
+
+Kho này không chứa mã thu thập dữ liệu, thông tin đăng nhập hoặc bằng chứng nguồn riêng tư.
