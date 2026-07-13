@@ -9,6 +9,8 @@ ROOT = Path(__file__).parent
 FIXTURES = ROOT / "fixtures"
 DB = FIXTURES / "kqxs_2026_Q2.sqlite"
 MANIFEST = FIXTURES / "manifest.json"
+CONFLICT_DB = FIXTURES / "conflict_kqxs_2026_Q2.sqlite"
+CONFLICT_MANIFEST = FIXTURES / "conflict_manifest.json"
 
 DDL = """
 PRAGMA foreign_keys = ON;
@@ -59,6 +61,17 @@ def build():
     digest = hashlib.sha256(DB.read_bytes()).hexdigest()
     manifest = {"archive_id":"kqxs-2026-Q2-v1","quarter_id":"2026-Q2","schema_version":SCHEMA_VERSION,"sha256":digest,"sqlite_bytes":DB.stat().st_size,"row_counts":{"lottery_draws":1,"lottery_results":27}}
     MANIFEST.write_text(json.dumps(manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8", newline="\n")
+    CONFLICT_DB.write_bytes(DB.read_bytes())
+    conflict = sqlite3.connect(CONFLICT_DB)
+    conflict.execute("UPDATE lottery_results SET result_number='99' WHERE result_key='2026-04-06:HN:G7:0'")
+    conflict.commit()
+    conflict.execute("VACUUM")
+    conflict.close()
+    conflict_digest = hashlib.sha256(CONFLICT_DB.read_bytes()).hexdigest()
+    conflict_manifest = dict(manifest)
+    conflict_manifest["sha256"] = conflict_digest
+    conflict_manifest["sqlite_bytes"] = CONFLICT_DB.stat().st_size
+    CONFLICT_MANIFEST.write_text(json.dumps(conflict_manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 if __name__ == "__main__":
     build()
