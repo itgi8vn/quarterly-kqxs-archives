@@ -1,0 +1,11 @@
+{
+  "archive_id": "kqxs-2026-Q2-v1",
+  "quarter_id": "2026-Q2",
+  "row_counts": {
+    "lottery_draws": 1,
+    "lottery_results": 27
+  },
+  "schema_version": "system_a_kqxs_archive_schema_v1",
+  "sha256": "537c6c9b5a9616040ac5a67a0a8249ce9074ba7cee04e4938114fd648caeb972",
+  "sqlite_bytes": 122880
+}
