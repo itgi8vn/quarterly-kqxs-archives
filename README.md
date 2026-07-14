@@ -1,162 +1,156 @@
-# API KQXS Archives Quarterly - Dữ liệu kết quả xổ số Việt Nam theo quý
+# API KQXS – Kho dữ liệu xổ số SQLite theo quý
 
-Đây là kho SQLite tĩnh, công khai dành cho ứng dụng và dịch vụ cần xây dựng API KQXS từ dữ liệu lịch sử. Bộ dữ liệu bao phủ từ **01/02/2009 đến 30/06/2026**, gồm kết quả xổ số miền Bắc, xổ số miền Trung và xổ số miền Nam.
+Đây là kho công khai chứa **dữ liệu xổ số lịch sử cho API KQXS** dưới dạng SQLite theo quý. System A phục vụ API nóng/hiện tại từ năm 2026; C1 lưu trữ tĩnh toàn bộ lịch sử đã hoàn tất để tải xuống, kiểm tra và truy vấn cục bộ.
 
-## Tổng quan dữ liệu API KQXS
+Kho bao gồm kết quả xổ số miền Bắc, xổ số miền Trung, xổ số miền Nam, XSMB ký hiệu đặc biệt, xổ số điện toán 1*2*3, Thần Tài 4 và xổ số điện toán 6x36. Đây không phải API trực tiếp và không cung cấp kết quả đang quay.
 
-| Thuộc tính | Giá trị |
-| --- | --- |
-| Định dạng | SQLite theo quý |
-| Phạm vi | 01/02/2009 - 30/06/2026 |
-| Khu vực | Miền Bắc, miền Trung, miền Nam |
-| Đơn vị cập nhật | Một tệp cho mỗi quý |
-| Phiên bản lược đồ | `system_a_kqxs_archive_schema_v1` |
-| Tổng số kỳ quay | 41.787 |
-| Tổng số kết quả giải | 809.397 |
+## Repo này dùng để làm gì?
 
-Kho dữ liệu KQXS này là nguồn lưu trữ lịch sử dạng tệp, không phải dịch vụ API trực tiếp.
+Sử dụng kho này khi cần tra cứu, phân tích, đồng bộ hoặc xây dựng dịch vụ đọc **kết quả xổ số lịch sử**. Mỗi tệp là một cơ sở dữ liệu độc lập, có khóa logic, checksum và các bảng chuẩn hóa.
 
-## Tải dữ liệu KQXS SQLite theo quý
+Repository: <https://github.com/itgi8vn/api-kqxs-archives-quarterly>
 
-Đường dẫn mỗi quý được xác định theo năm và quý. Ví dụ tải dữ liệu quý 2 năm 2026:
+## Tải dữ liệu như thế nào?
+
+Tải V1 quý 2 năm 2026:
 
 ```sh
 curl -LO https://raw.githubusercontent.com/itgi8vn/api-kqxs-archives-quarterly/main/archives/2026/Q2/kqxs_2026_Q2.sqlite
 ```
 
-Tải toàn bộ 70 tệp SQLite bằng bản sao nông:
+Tải V2 cùng quý:
+
+```sh
+curl -LO https://raw.githubusercontent.com/itgi8vn/api-kqxs-archives-quarterly/main/archives/2026/Q2/kqxs_2026_Q2_v2.sqlite
+```
+
+Hoặc clone toàn bộ kho:
 
 ```sh
 git clone --depth 1 https://github.com/itgi8vn/api-kqxs-archives-quarterly.git
 ```
 
-## Cấu trúc thư mục archive
-
-Kho chỉ dùng một mẫu đường dẫn ổn định:
+## Cấu trúc file theo quý
 
 ```text
 archives/YYYY/QN/kqxs_YYYY_QN.sqlite
+archives/YYYY/QN/kqxs_YYYY_QN_v2.sqlite
 ```
 
-Trong đó `YYYY` là năm và `QN` là quý từ `Q1` đến `Q4`. Quý 1 năm 2009 là quý đầu tiên và bắt đầu từ ngày 01/02/2009.
+`YYYY` là năm; `QN` là `Q1` đến `Q4`. Phạm vi lịch sử bắt đầu từ `2009-02-01`. Chỉ các quý đã hoàn tất được xuất bản.
 
-## Cấu trúc database SQLite
+## V1 và V2 khác nhau ra sao?
 
-Mỗi tệp có các bảng công khai sau:
+- **V1** chứa KQXS truyền thống: danh mục miền/tỉnh, lịch quay, cơ cấu giải, kỳ quay và kết quả.
+- **V2** giữ nguyên dữ liệu KQXS canonical của V1 và bổ sung XSMB ký hiệu đặc biệt cùng ba sản phẩm điện toán.
+- V1 dùng tên không hậu tố; V2 dùng hậu tố `_v2.sqlite`.
+- V2 có `PRAGMA user_version=2` và marker `api_kqxs_archive_schema_v2`.
 
-- `archive_schema_version`: phiên bản lược đồ.
-- `archive_manifest`: phạm vi ngày, số dòng và thông tin kiểm tra nội bộ.
-- `archive_checksums`: SHA-256 của nội dung logic theo bảng.
-- `regions`: danh mục miền xổ số.
-- `lottery_provinces`: danh mục tỉnh, thành phố và miền tương ứng.
-- `lottery_schedules`: lịch quay theo tỉnh và thứ trong tuần.
-- `prize_specs`: số lượng giải, độ rộng chuỗi số và thứ tự giải.
-- `lottery_draws`: kỳ quay với khóa logic `YYYY-MM-DD:PROVINCE_CODE`.
-- `lottery_results`: kết quả với khóa logic `draw_key:PRIZE_CODE:PRIZE_ORDER`.
-
-`result_number` luôn có kiểu `TEXT`. Số 0 ở đầu là một phần của kết quả và phải được giữ nguyên khi đọc, xuất hoặc chuyển đổi dữ liệu.
-
-## Ví dụ truy vấn dữ liệu KQXS
-
-Lấy kết quả của Bắc Ninh ngày 01/04/2026 theo đúng thứ tự giải:
+Ứng dụng nên kiểm tra marker trong file, không suy đoán phiên bản chỉ từ tên.
 
 ```sql
-SELECT
-  d.draw_date,
-  d.province_code,
-  r.prize_code,
-  r.prize_order,
-  r.result_number
-FROM lottery_draws AS d
-JOIN lottery_results AS r ON r.draw_key = d.draw_key
-JOIN prize_specs AS p
-  ON p.region_code = d.region_code
- AND p.prize_code = r.prize_code
-WHERE d.draw_date = '2026-04-01'
-  AND d.province_code = 'BN'
+PRAGMA user_version;
+SELECT version, name FROM archive_schema_version;
+```
+
+## Các bảng dữ liệu
+
+KQXS truyền thống:
+
+- `regions`, `lottery_provinces`, `lottery_schedules`
+- `prize_specs`, `lottery_draws`, `lottery_results`
+
+V2 bổ sung:
+
+- `xsmb_special_series_draws`, `xsmb_special_series_items`
+- `electronic_products`, `electronic_schedules`
+- `electronic_draws`, `electronic_results`
+
+Các bảng `archive_schema_version`, `archive_manifest`, `archive_checksums` phục vụ nhận diện và kiểm tra nội dung. Giá trị kết quả là `TEXT` để giữ nguyên số 0 ở đầu.
+
+## Ví dụ SQL đọc dữ liệu
+
+### Kết quả KQXS
+
+```sql
+SELECT d.draw_date, d.province_code,
+       r.prize_code, r.prize_order, r.result_number
+FROM lottery_draws d
+JOIN lottery_results r ON r.draw_key=d.draw_key
+JOIN prize_specs p
+  ON p.region_code=d.region_code AND p.prize_code=r.prize_code
+WHERE d.draw_date='2026-04-01' AND d.province_code='BN'
 ORDER BY p.sort_order, r.prize_order;
 ```
 
-Kiểm tra phạm vi và số kỳ quay trong một tệp quý:
+### XSMB ký hiệu đặc biệt
 
 ```sql
-SELECT
-  MIN(draw_date) AS ngay_dau,
-  MAX(draw_date) AS ngay_cuoi,
-  COUNT(*) AS so_ky_quay
-FROM lottery_draws;
+SELECT d.draw_date, i.item_order,
+       i.number_text || i.suffix AS token
+FROM xsmb_special_series_draws d
+JOIN xsmb_special_series_items i USING(series_key)
+WHERE d.draw_date='2026-04-01'
+ORDER BY i.item_order;
 ```
 
-Đếm số kết quả theo miền:
+### Xổ số điện toán
 
 ```sql
-SELECT d.region_code, COUNT(*) AS so_ket_qua
-FROM lottery_results AS r
-JOIN lottery_draws AS d ON d.draw_key = r.draw_key
-GROUP BY d.region_code
-ORDER BY d.region_code;
+SELECT d.draw_date, d.product_code, d.normalization_kind,
+       r.result_order, r.result_number
+FROM electronic_draws d
+JOIN electronic_results r USING(electronic_draw_key)
+WHERE d.draw_date='2026-04-01'
+ORDER BY d.product_code, r.result_order;
 ```
 
-## Tích hợp archive với API KQXS
+## Khi nào dùng System A API, khi nào dùng C1 archive?
 
-Chủ ứng dụng có thể tải tệp SQLite cần thiết, mở ở chế độ chỉ đọc, truy vấn các bảng chuẩn hóa và cung cấp API KQXS của riêng mình. Cách này phù hợp cho tra cứu kết quả xổ số lịch sử, nhập dữ liệu theo lô hoặc làm nguồn dữ liệu cục bộ.
+**Dùng System A API** khi cần dữ liệu nóng/hiện tại từ `2026-01-01`, phản hồi HTTP hoặc trạng thái mới nhất.
 
-Kho này **không phải endpoint HTTP API trực tiếp**, không cung cấp dữ liệu thời gian thực và không cam kết thời gian hoạt động của một dịch vụ mạng.
+**Dùng C1 archive** khi cần lịch sử đầy đủ, tải theo lô, truy vấn ngoại tuyến, đối soát hoặc lưu bản dữ liệu ổn định theo quý. C1 là kho tĩnh; không thay thế API thời gian thực.
 
-## Kiểm tra tính toàn vẹn
+## Quy tắc dữ liệu và giới hạn
 
-Mở một tệp:
+- V1 được giữ nguyên; V2 là file sidecar riêng.
+- XSMB ký hiệu đặc biệt chỉ chứa dòng sạch có đúng sáu token theo thứ tự, cùng hậu tố và không trùng phần số.
+- Điện toán 1*2*3 có độ rộng `1,2,3`; Thần Tài 4 có độ rộng `4`; điện toán 6x36 có sáu giá trị rộng `2` và chỉ có lịch thứ Tư/thứ Bảy.
+- Không có bảng cơ cấu giải mới cho sản phẩm V2; contract độ rộng/thứ tự được cố định theo schema V2.
+- Không chứa `d6x45`, `d6x55` hoặc sản phẩm khác.
+- Chín dòng electronic bị quarantine đã được loại, không tự sửa hoặc tự điền số 0.
+- Các dòng ngày nghỉ được phê duyệt giữ tuple số 0 đúng độ rộng và có `normalization_kind='holiday_zero'`.
+- Không chứa nguồn riêng tư, URL nguồn, provenance, host nội bộ, token hoặc credential.
 
-```sh
-sqlite3 kqxs_2026_Q2.sqlite
-```
-
-Chạy các kiểm tra SQLite:
+## Kiểm tra file SQLite
 
 ```sql
 PRAGMA quick_check;
 PRAGMA integrity_check;
 PRAGMA foreign_key_check;
-```
 
-`quick_check` và `integrity_check` phải trả về `ok`; `foreign_key_check` không được trả về dòng lỗi.
-
-Kiểm tra phiên bản, thông tin quý và checksum logic:
-
-```sql
-SELECT * FROM archive_schema_version;
 SELECT * FROM archive_manifest;
 SELECT artifact, row_count, sha256
 FROM archive_checksums
 ORDER BY artifact;
 ```
 
-## Phạm vi và lưu ý dữ liệu
+`quick_check` và `integrity_check` phải trả `ok`; `foreign_key_check` không trả dòng lỗi.
 
-- Chỉ gồm kết quả xổ số đã hoàn tất và dữ liệu KQXS lịch sử.
-- Không có kết quả trực tiếp, dữ liệu đang quay hoặc hình ảnh vé số.
-- Không nên diễn giải thứ tự thuộc tính JSON thay cho `sort_order` và `prize_order` trong SQLite.
-- Các kỳ có toàn bộ giá trị bằng 0 biểu thị ngày không quay thưởng hoặc không có nguồn dữ liệu, đã được chuẩn hóa để giữ cấu trúc đầy đủ và nhất quán.
-- Kho công khai không chứa mã thu thập dữ liệu, thông tin đăng nhập hoặc bằng chứng nguồn riêng tư.
+## Câu hỏi thường gặp
 
-## Câu hỏi thường gặp về API KQXS
+### Kho này có phải API KQXS trực tiếp không?
 
-### API KQXS là gì?
+Không. Đây là kho SQLite theo quý để ứng dụng tải và tự truy vấn. API nóng/hiện tại thuộc System A.
 
-API KQXS là giao diện do một ứng dụng cung cấp để hệ thống khác truy vấn kết quả xổ số. Bộ SQLite theo quý trong kho này có thể làm nguồn dữ liệu lịch sử cho ứng dụng đó.
+### Dữ liệu có đủ ba miền không?
 
-### Kho này có cung cấp API trực tiếp không?
+Có. KQXS canonical bao gồm xổ số miền Bắc, xổ số miền Trung và xổ số miền Nam trong phạm vi lịch sử đã công bố.
 
-Không. Đây là kho tệp SQLite tĩnh. Người dùng tải dữ liệu và tự xây dựng endpoint phù hợp với ứng dụng của mình.
+### Vì sao kết quả dùng kiểu TEXT?
 
-### Làm thế nào để tải một quý?
+Kiểu `TEXT` bảo toàn số 0 ở đầu và độ rộng chính xác của từng kết quả.
 
-Chọn năm và quý theo mẫu `archives/YYYY/QN/kqxs_YYYY_QN.sqlite`, sau đó tải tệp bằng đường dẫn raw của GitHub.
+### Có thể ghi đè file quý đã xuất bản không?
 
-### Vì sao phải giữ kết quả ở kiểu TEXT?
-
-Một số kết quả có số 0 ở đầu. Kiểu số có thể làm mất các số 0 này, còn `TEXT` bảo toàn chính xác độ rộng của kết quả.
-
-### Dữ liệu có đủ cả ba miền không?
-
-Có. Bộ dữ liệu bao gồm xổ số miền Bắc, xổ số miền Trung và xổ số miền Nam trong phạm vi ngày đã công bố.
+Không. Cùng SHA là thao tác no-op; khác SHA là xung đột và phải được xem xét riêng.
